@@ -11,37 +11,18 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 
-# ==========================================
-# 기본 설정
-# ==========================================
-
 APP_TITLE = "파력 발전량 예측 실습실"
-
 BASE_DIR = Path(__file__).resolve().parent
-
 ZIP_NAME = "wave+energy+converters.zip"
 ZIP_PATH = BASE_DIR / ZIP_NAME
-
 RECORD_DIR = BASE_DIR / "내_기록"
 RECORD_PATH = RECORD_DIR / "파력발전_데이터_기록.json"
-
-
-# ==========================================
-# 데이터 열 이름
-# ==========================================
 
 X_COLS = [f"X{i}" for i in range(1, 17)]
 Y_COLS = [f"Y{i}" for i in range(1, 17)]
 P_COLS = [f"P{i}" for i in range(1, 17)]
-
 FEATURE_COLS = X_COLS + Y_COLS
-
 DATA_COLS = FEATURE_COLS + P_COLS + ["Total Power"]
-
-
-# ==========================================
-# 지역별 CSV 파일
-# ==========================================
 
 REGION_FILES = {
     "Adelaide": "Adelaide_Data.csv",
@@ -50,42 +31,19 @@ REGION_FILES = {
     "Tasmania": "Tasmania_Data.csv",
 }
 
-
-# ==========================================
-# 우리말 뜻
-# ==========================================
-
 MEANINGS = {
-    **{
-        f"X{i}": f"{i}번 장치의 X 좌표"
-        for i in range(1, 17)
-    },
-    **{
-        f"Y{i}": f"{i}번 장치의 Y 좌표"
-        for i in range(1, 17)
-    },
-    **{
-        f"P{i}": f"{i}번 장치의 개별 발전량"
-        for i in range(1, 17)
-    },
+    **{f"X{i}": f"{i}번 장치의 X 좌표" for i in range(1, 17)},
+    **{f"Y{i}": f"{i}번 장치의 Y 좌표" for i in range(1, 17)},
+    **{f"P{i}": f"{i}번 장치의 개별 발전량" for i in range(1, 17)},
     "Total Power": "전체 발전량",
 }
-
-
-# ==========================================
-# 페이지 설정
-# ==========================================
 
 st.set_page_config(
     page_title=APP_TITLE,
     page_icon="🌊",
-    layout="wide",
+    layout="wide"
 )
 
-
-# ==========================================
-# 기록 불러오기
-# ==========================================
 
 def load_records():
 
@@ -101,9 +59,9 @@ def load_records():
             with RECORD_PATH.open(
                 "r",
                 encoding="utf-8"
-            ) as file:
+            ) as f:
 
-                saved = json.load(file)
+                saved = json.load(f)
 
             if isinstance(saved, dict):
 
@@ -127,10 +85,6 @@ def load_records():
     return default
 
 
-# ==========================================
-# 기록 저장
-# ==========================================
-
 def save_records(records):
 
     try:
@@ -143,39 +97,31 @@ def save_records(records):
         with RECORD_PATH.open(
             "w",
             encoding="utf-8"
-        ) as file:
+        ) as f:
 
             json.dump(
                 records,
-                file,
+                f,
                 ensure_ascii=False,
                 indent=2
             )
 
         return True
 
-    except OSError as error:
+    except OSError as e:
 
         st.error(
-            f"기록 파일 저장에 실패했습니다: {error}"
+            f"기록 파일 저장에 실패했습니다: {e}"
         )
 
         return False
 
 
-# ==========================================
-# ZIP 파일 찾기
-# ==========================================
-
 def locate_zip():
-
-    # 기본 파일 이름
 
     if ZIP_PATH.exists():
 
         return ZIP_PATH
-
-    # 줄인 ZIP 파일 등 비슷한 이름 검색
 
     candidates = list(
         BASE_DIR.glob("*.zip")
@@ -199,10 +145,6 @@ def locate_zip():
     return None
 
 
-# ==========================================
-# ZIP 데이터 읽기
-# ==========================================
-
 @st.cache_data(
     show_spinner="파력 발전 데이터를 불러오는 중..."
 )
@@ -215,56 +157,44 @@ def load_data(zip_path, zip_mtime):
     with zipfile.ZipFile(
         zip_path,
         "r"
-    ) as archive:
+    ) as zf:
 
-        archive_names = archive.namelist()
+        names = zf.namelist()
 
-        for region, filename in REGION_FILES.items():
-
-            # ZIP 내부에서 CSV 파일 찾기
+        for region, expected_filename in REGION_FILES.items():
 
             matches = [
                 name
-                for name in archive_names
+                for name in names
                 if Path(name).name.lower()
-                == filename.lower()
+                == expected_filename.lower()
             ]
 
             if not matches:
 
                 raise FileNotFoundError(
-                    f"ZIP 내부에서 {filename} 파일을 찾지 못했습니다."
+                    f"ZIP 내부에서 {expected_filename} 파일을 찾지 못했습니다."
                 )
 
-            # 헤더 없는 CSV 읽기
-
-            with archive.open(matches[0]) as csv_file:
+            with zf.open(matches[0]) as file:
 
                 frame = pd.read_csv(
-                    csv_file,
+                    file,
                     header=None
                 )
-
-            # 열 개수 확인
 
             if frame.shape[1] != 49:
 
                 raise ValueError(
-                    f"{region} 데이터의 열 개수가 49개가 아닙니다. "
-                    f"현재 열 개수: {frame.shape[1]}"
+                    f"{region} CSV 열 개수가 49개가 아닙니다. "
+                    f"현재 {frame.shape[1]}개입니다."
                 )
 
-            # 열 이름 지정
-
             frame.columns = DATA_COLS
-
-            # 지역 정보 추가
 
             frame["지역"] = region
 
             frames.append(frame)
-
-    # 지역별 데이터 합치기
 
     combined = pd.concat(
         frames,
@@ -275,7 +205,7 @@ def load_data(zip_path, zip_mtime):
 
 
 # ==========================================
-# 제목
+# 앱 제목
 # ==========================================
 
 st.title(
@@ -284,12 +214,12 @@ st.title(
 
 st.caption(
     "파력 발전 장치의 배치 좌표와 발전량 데이터를 탐색하고 "
-    "선형 회귀 모델로 전체 발전량을 예측합니다."
+    "선형 회귀로 전체 발전량을 예측합니다."
 )
 
 
 # ==========================================
-# ZIP 파일 확인
+# 데이터 ZIP 확인
 # ==========================================
 
 zip_file = locate_zip()
@@ -301,9 +231,7 @@ if zip_file is None:
     )
 
     st.info(
-        "`wave+energy+converters.zip` 또는 "
-        "`wave_energy_reduced.zip` 파일을 "
-        "`main.py`와 같은 폴더에 넣고 "
+        f"`{ZIP_NAME}` 파일을 `main.py`와 같은 폴더에 넣고 "
         "GitHub 저장소에도 함께 올려 주세요."
     )
 
@@ -327,10 +255,10 @@ except (
     pd.errors.ParserError,
     ValueError,
     FileNotFoundError
-) as error:
+) as e:
 
     st.error(
-        f"데이터를 읽지 못했습니다: {error}"
+        f"데이터를 읽지 못했습니다: {e}"
     )
 
     st.info(
@@ -340,10 +268,6 @@ except (
 
     st.stop()
 
-
-# ==========================================
-# 기록 불러오기
-# ==========================================
 
 records = load_records()
 
@@ -355,20 +279,11 @@ records = load_records()
 st.subheader("데이터 소개")
 
 st.write(
-    """
-    이 데이터는 Adelaide, Perth, Sydney, Tasmania 지역의
-    파력 발전 장치 배치와 발전량을 기록한 자료입니다.
-
-    각 행에는 16개 장치의 X 좌표와 Y 좌표가 있으며
-    장치별 발전량 P1~P16과 전체 발전량 Total Power도
-    포함되어 있습니다.
-
-    이 앱에서는 X 좌표와 Y 좌표 32개를 입력 변수로 사용하고
-    Total Power를 예측합니다.
-
-    P1~P16은 전체 발전량과 직접 연결되어 있으므로
-    예측 입력 변수에서 제외합니다.
-    """
+    "이 데이터는 Adelaide, Perth, Sydney, Tasmania 지역의 파력 발전 장치 배치와 "
+    "발전량을 기록한 자료입니다. 각 행에는 16개 장치의 X·Y 좌표와 장치별 발전량 "
+    "P1~P16, 전체 발전량 Total Power가 들어 있습니다. 이 앱은 X·Y 좌표 32개를 "
+    "입력 변수로 사용해 Total Power를 예측합니다. P1~P16은 전체 발전량과 직접 "
+    "연결되어 있어 예측 입력 변수에서 제외합니다."
 )
 
 
@@ -378,43 +293,30 @@ st.write(
 
 numeric_data = data[DATA_COLS]
 
-total_rows = len(data)
-
-total_columns = len(DATA_COLS)
-
 missing_count = int(
     numeric_data.isna().sum().sum()
 )
 
-region_count = data["지역"].nunique()
+metric_cols = st.columns(4)
 
-
-# ==========================================
-# 요약 카드
-# ==========================================
-
-st.subheader("데이터 요약")
-
-metric_columns = st.columns(4)
-
-metric_columns[0].metric(
+metric_cols[0].metric(
     "전체 데이터 수",
-    f"{total_rows:,}"
+    f"{len(data):,}"
 )
 
-metric_columns[1].metric(
+metric_cols[1].metric(
     "열 개수",
-    f"{total_columns:,}"
+    f"{len(DATA_COLS):,}"
 )
 
-metric_columns[2].metric(
+metric_cols[2].metric(
     "결측값 수",
     f"{missing_count:,}"
 )
 
-metric_columns[3].metric(
+metric_cols[3].metric(
     "지역 수",
-    f"{region_count:,}"
+    f"{data['지역'].nunique():,}"
 )
 
 
@@ -434,34 +336,27 @@ saved_meanings = records.get(
     {}
 )
 
-for column in DATA_COLS:
+for col in DATA_COLS:
 
-    series = data[column]
-
-    if pd.api.types.is_numeric_dtype(series):
-
-        value_type = "숫자형"
-
-    else:
-
-        value_type = "문자형"
+    s = data[col]
 
     metadata.append(
         {
-            "열 이름": column,
+            "열 이름": col,
 
             "우리말 뜻": saved_meanings.get(
-                column,
-                MEANINGS.get(
-                    column,
-                    ""
-                )
+                col,
+                MEANINGS.get(col, "")
             ),
 
-            "값의 종류": value_type,
+            "값의 종류": (
+                "숫자형"
+                if pd.api.types.is_numeric_dtype(s)
+                else "문자형"
+            ),
 
             "빈 값 개수": int(
-                series.isna().sum()
+                s.isna().sum()
             ),
         }
     )
@@ -472,17 +367,12 @@ metadata_df = pd.DataFrame(
 )
 
 
-# ==========================================
-# 열 정보 편집
-# ==========================================
-
 edited_metadata = st.data_editor(
     metadata_df,
     hide_index=True,
     use_container_width=True,
 
     column_config={
-
         "열 이름": st.column_config.TextColumn(
             disabled=True
         ),
@@ -499,7 +389,6 @@ edited_metadata = st.data_editor(
         "빈 값 개수": st.column_config.NumberColumn(
             disabled=True
         ),
-
     },
 
     key="metadata_editor"
@@ -531,7 +420,7 @@ if st.button(
     type="primary"
 ):
 
-    updated_records = {
+    updated = {
 
         "source": source,
 
@@ -545,11 +434,10 @@ if st.button(
 
     }
 
-    if save_records(updated_records):
+    if save_records(updated):
 
         st.success(
-            "우리말 뜻과 출처를 "
-            "내_기록 폴더의 JSON 파일에 저장했습니다."
+            "우리말 뜻과 출처를 내_기록 폴더의 JSON 파일에 저장했습니다."
         )
 
         st.rerun()
@@ -573,7 +461,7 @@ st.dataframe(
 
 
 # ==========================================
-# 지역별 발전량 그래프
+# 지역별 전체 발전량 분포
 # ==========================================
 
 st.subheader("지역별 전체 발전량 분포")
@@ -590,8 +478,23 @@ region_fig = px.box(
     labels={
         "지역": "지역",
         "Total Power": "전체 발전량"
-    }
+    },
 )
+
+
+# 박스플롯의 세로 길이를 늘려 분포를 더 크게 표시
+
+region_fig.update_layout(
+    height=800,
+
+    margin=dict(
+        l=50,
+        r=30,
+        t=80,
+        b=50
+    ),
+)
+
 
 st.plotly_chart(
     region_fig,
@@ -608,13 +511,8 @@ st.divider()
 st.header("전체 발전량 예측")
 
 st.write(
-    """
-    16개 장치의 X 좌표와 Y 좌표를 입력하면
-    전체 발전량을 예측합니다.
-
-    모든 지역의 데이터를 합쳐 학습하고
-    테스트 데이터로 모델 성능을 평가합니다.
-    """
+    "16개 장치의 X 좌표와 Y 좌표를 입력하면 "
+    "Total Power를 예측합니다."
 )
 
 
@@ -656,7 +554,7 @@ X_train, X_test, y_train, y_test = train_test_split(
 
 
 # ==========================================
-# 선형 회귀 모델 학습
+# 선형 회귀 모델
 # ==========================================
 
 model = LinearRegression()
@@ -668,10 +566,10 @@ model.fit(
 
 
 # ==========================================
-# 테스트 데이터 예측
+# 예측
 # ==========================================
 
-test_predictions = model.predict(
+test_pred = model.predict(
     X_test
 )
 
@@ -682,29 +580,25 @@ test_predictions = model.predict(
 
 mae = mean_absolute_error(
     y_test,
-    test_predictions
+    test_pred
 )
 
 mse = mean_squared_error(
     y_test,
-    test_predictions
+    test_pred
 )
 
 
-# ==========================================
-# 평가 지표 표시
-# ==========================================
-
 st.subheader("모델 평가")
 
-score_columns = st.columns(2)
+scores = st.columns(2)
 
-score_columns[0].metric(
+scores[0].metric(
     "MAE",
     f"{mae:,.4f}"
 )
 
-score_columns[1].metric(
+scores[1].metric(
     "MSE",
     f"{mse:,.4f}"
 )
@@ -727,7 +621,7 @@ with st.expander(
         {
             "실제 전체 발전량": y_test.iloc[:20].to_numpy(),
 
-            "예측 전체 발전량": test_predictions[:20],
+            "예측 전체 발전량": test_pred[:20],
         }
     )
 
@@ -763,20 +657,11 @@ st.write(
 )
 
 
-# ==========================================
-# 기본 좌표
-# ==========================================
-
 default_row = data.iloc[0]
 
-coordinate_values = {
-
-    column: float(
-        default_row[column]
-    )
-
-    for column in FEATURE_COLS
-
+coord = {
+    col: float(default_row[col])
+    for col in FEATURE_COLS
 }
 
 
@@ -788,39 +673,39 @@ with st.form("coordinate_form"):
 
     st.markdown("**X 좌표**")
 
-    x_columns = st.columns(4)
+    x_cols = st.columns(4)
 
-    for i, column in enumerate(X_COLS):
+    for i, col in enumerate(X_COLS):
 
-        with x_columns[i % 4]:
+        with x_cols[i % 4]:
 
-            coordinate_values[column] = st.number_input(
-                column,
+            coord[col] = st.number_input(
+                col,
 
-                value=coordinate_values[column],
+                value=coord[col],
 
-                key=f"coord_{column}"
+                key=f"coord_{col}"
             )
 
 
     st.markdown("**Y 좌표**")
 
-    y_columns = st.columns(4)
+    y_cols = st.columns(4)
 
-    for i, column in enumerate(Y_COLS):
+    for i, col in enumerate(Y_COLS):
 
-        with y_columns[i % 4]:
+        with y_cols[i % 4]:
 
-            coordinate_values[column] = st.number_input(
-                column,
+            coord[col] = st.number_input(
+                col,
 
-                value=coordinate_values[column],
+                value=coord[col],
 
-                key=f"coord_{column}"
+                key=f"coord_{col}"
             )
 
 
-    predict_clicked = st.form_submit_button(
+    predict = st.form_submit_button(
         "전체 발전량 예측",
         type="primary"
     )
@@ -830,64 +715,56 @@ with st.form("coordinate_form"):
 # 발전량 예측
 # ==========================================
 
-if predict_clicked:
+if predict:
 
-    input_frame = pd.DataFrame(
-
+    input_df = pd.DataFrame(
         [
             [
-                coordinate_values[column]
-
-                for column in FEATURE_COLS
+                coord[c]
+                for c in FEATURE_COLS
             ]
         ],
 
         columns=FEATURE_COLS
-
     )
 
 
-    predicted_power = float(
-        model.predict(input_frame)[0]
+    prediction = float(
+        model.predict(input_df)[0]
     )
 
 
     st.success(
-        f"예측 전체 발전량: {predicted_power:,.4f}"
+        f"예측 전체 발전량: {prediction:,.4f}"
     )
 
 
     # ==========================================
-    # 장치 배치 시각화
+    # 장치 배치 그래프
     # ==========================================
 
-    coordinate_plot_data = pd.DataFrame(
-
+    layout_df = pd.DataFrame(
         {
-
             "X 좌표": [
-                coordinate_values[column]
-                for column in X_COLS
+                coord[c]
+                for c in X_COLS
             ],
 
             "Y 좌표": [
-                coordinate_values[column]
-                for column in Y_COLS
+                coord[c]
+                for c in Y_COLS
             ],
 
             "장치": [
                 f"장치 {i}"
                 for i in range(1, 17)
             ],
-
         }
-
     )
 
 
-    layout_plot = px.scatter(
-
-        coordinate_plot_data,
+    layout_fig = px.scatter(
+        layout_df,
 
         x="X 좌표",
 
@@ -896,21 +773,15 @@ if predict_clicked:
         text="장치",
 
         title="입력한 파력 발전 장치 배치",
-
-        labels={
-            "X 좌표": "X 좌표",
-            "Y 좌표": "Y 좌표"
-        }
-
     )
 
 
-    layout_plot.update_traces(
+    layout_fig.update_traces(
         textposition="top center"
     )
 
 
     st.plotly_chart(
-        layout_plot,
+        layout_fig,
         use_container_width=True
     )
