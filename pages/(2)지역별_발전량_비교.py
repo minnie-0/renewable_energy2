@@ -58,7 +58,7 @@ def load_data(zip_path):
                 continue
 
             file_path = Path(file_name)
-            region = file_path.stem
+            region = file_path.stem.replace("_Data","")
 
             if region not in REGION_NAMES:
                 continue
