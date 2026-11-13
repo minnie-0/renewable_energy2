@@ -24,6 +24,10 @@ st.write(
 APP_DIR = Path(__file__).resolve().parent.parent
 ZIP_PATH = APP_DIR / "wave+energy+converters.zip"
 
+if not ZIP_PATH.exists():
+    st.error(f"파일을 찾을 수 없습니다: {ZIP_PATH}")
+    st.stop()
+
 # 데이터 컬럼명
 FEATURE_COLS = (
     [f"X{i}" for i in range(1, 17)]
