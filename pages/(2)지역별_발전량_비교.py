@@ -22,7 +22,7 @@ st.write(
 
 # 데이터 파일 경로
 APP_DIR = Path(__file__).resolve().parent.parent
-ZIP_PATH = APP_DIR / "wave+energy+converters.zip"
+ZIP_PATH = APP_DIR / "wave_energy_reduced.zip"
 
 if not ZIP_PATH.exists():
     st.error(f"파일을 찾을 수 없습니다: {ZIP_PATH}")
