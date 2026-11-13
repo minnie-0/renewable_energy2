@@ -84,7 +84,9 @@ def load_data(zip_path):
 if not ZIP_PATH.exists():
     st.error("wave+energy+converters.zip 파일을 프로젝트 최상위 폴더에 넣어 주세요.")
     st.stop()
-
+with zipfile.ZipFile(ZIP_PATH, "r") as zip_file:
+    st.write("ZIP 내부 파일 목록")
+    st.write(zip_file.namelist())
 try:
     data = load_data(str(ZIP_PATH))
 except Exception as e:
